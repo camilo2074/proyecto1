@@ -2,13 +2,15 @@ import asyncio, threading, tempfile, os
 from queue import Queue, Empty
 import tkinter as tk
 from tkinter import ttk
-
+import sys
+import io
+import automatico
 from pybricksdev.ble import find_device
 from pybricksdev.connections.pybricks import PybricksHubBLE
 
 
 
-# -------------------- PROGRAMA ENVIADO AL HUB -------------------- 
+# -------------------- PROGRAMA ENVIADO AL HUB --------------------     
 
 def create_program(comando: str) -> str:
     actions = {
@@ -19,7 +21,6 @@ motorA.run_angle(600, -180)
 
 """,
         "azul": """
-        
 if motorB.angle() != 180:
     motorB.run_target(600, 180)
 motorA.run_angle(600,-180)
@@ -34,7 +35,7 @@ motorA.run_angle(600, 180)
 """,
 
         "verde": """
-if motorC.angle() != 0:
+if motorC.angle() < 350 or motorC.angle() > 10:
     motorC.run_target(600, 0)
 motorA.run_angle(600, 180)
 
@@ -42,10 +43,13 @@ motorA.run_angle(600, 180)
 
         "Leer": """
 sensor = ColorSensor(Port.B)
-do{
-    color=sensor.color()
-}while color==None
+color = sensor.color()
 print(color)
+""",
+
+        "Eliminar": """
+motorA.run_angle(100, 180)
+#motorA.track_target(motorA.angle()-180)
 """
     }
     if comando == "auto":
@@ -81,20 +85,49 @@ async def execute_command(worker, comando: str, log_cb=None):
     try:
         if log_cb:
             log_cb(f"Ejecutando: {comando}")
-        # Para recibir datos, print_output debe ser True
+        # Para recibir datos, capturar el output impreso
         if "Leer" in comando:
             try:
-                color=await worker.hub.run(temp_path, wait=True)
-                color_str = color.strip().lower()
-                worker.log(f"Color detectado: {color_str}")
+                # Redirigir stdout para capturar lo que imprime hub.run()
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                
+                try:
+                    await worker.hub.run(temp_path, wait=True, print_output=True)
+                    color_output = sys.stdout.getvalue()
+                finally:
+                    sys.stdout = old_stdout
+                
+                # Parsear la salida para extraer el color
+                lines = color_output.strip().split('\n')
+                color_str = ""
+                for line in lines:
+                    if "Color." in line:
+                        color_str = line.strip()
+                        break
+                
+                if color_str:
+                    # Extraer el nombre del color: "Color.YELLOW" -> "yellow"
+                    if "Color." in color_str:
+                        color_name = color_str.split("Color.")[1].lower()
+                    else:
+                        color_name = color_str.lower()
+                else:
+                    color_name = "desconocido"
+                
+                worker.log(f"Color detectado: {color_name}")
                 if worker.color_canvas:
-                    worker.color_canvas.configure(bg=color_str)
+                    worker.color_canvas.configure(bg=color_name)
                 if worker.color_label:
-                    worker.color_label.configure(text=f"Color detectado: {color_str}")
+                    worker.color_label.configure(text=f"Color detectado: {color_name}")
+                
             except Exception as e:
                 worker.log(f"Error leyendo color: {e}")
         else:
             await worker.hub.run(temp_path, wait=True, print_output=True)
+            worker.color_canvas.configure(bg="#ffffff")
+            worker.color_label.configure(text=f"Color detectado: No detectado")
+
 
         #await hub.run(temp_path, wait=True, print_output=True)
         if log_cb:
@@ -209,6 +242,59 @@ class BLEWorker:
         if self.loop.is_running() and self.queue is not None:
             self.loop.call_soon_threadsafe(self.queue.put_nowait, comando)
 
+    def disconnect(self, timeout: float = 5.0):
+        """Desconecta el worker de forma segura: cancela la tarea actual,
+        desconecta el hub y detiene el event loop. Bloquea hasta que
+        la desconexión haya terminado o hasta `timeout` segundos.
+        """
+        if not self.loop.is_running():
+            return
+
+        try:
+            fut = asyncio.run_coroutine_threadsafe(self._do_disconnect(), self.loop)
+            fut.result(timeout=timeout)
+        except Exception:
+            # No bloquear si hay errores; el thread limpiará el loop.
+            pass
+
+    async def _do_disconnect(self):
+        # Cancelar tarea en curso
+        try:
+            if self.current_task and not self.current_task.done():
+                self.current_task.cancel()
+                try:
+                    await asyncio.wait_for(self.current_task, timeout=2.0)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Desconectar hub si existe
+        try:
+            if self.hub:
+                try:
+                    await asyncio.wait_for(self.hub.disconnect(), timeout=3.0)
+                except Exception:
+                    pass
+                self.hub = None
+        except Exception:
+            pass
+
+        # Detener loop: cancelar tareas restantes y parar
+        try:
+            for task in asyncio.all_tasks(self.loop):
+                if task is not asyncio.current_task(loop=self.loop):
+                    task.cancel()
+        except Exception:
+            pass
+
+        # Dar al loop un momento para limpiar y luego detenerlo
+        try:
+            await asyncio.sleep(0)
+        except Exception:
+            pass
+        self.loop.call_soon_threadsafe(self.loop.stop)
+
 # -------------------- GUI -------------------- 
 
 class LegoGUI:
@@ -256,23 +342,30 @@ class LegoGUI:
         Frame_btn = ttk.Frame(body, padding=20)
         Frame_btn.pack(fill='both', expand=True)
         btn_coman=[
-            ("🔴 ROJO\n(A→ +180°, B→0°)","#d9534f","white","#b94a42",lambda: self.worker.send_command("rojo"),0,0),
-            ("🔵 AZUL\n(A→ +180°, B→180°)","#0275d8","white","#025aa5",lambda: self.worker.send_command("azul"),0,1),
-            ("🟡 AMARILLO\n(A→ -180°, C→0°)","#f0ad4e","black","#d08b36",lambda: self.worker.send_command("amarillo"),0,2),
-            ("🟢 VERDE\n(A→ -180°, C→180°)","#5cb85c","white","#4cae4c",lambda: self.worker.send_command("verde"),0,3),
-            ("LEER COLOR","#00e1ff","black","#0093a7",lambda: self.worker.send_command("Leer"),1,0),
-            ("AUTOMATICO","#00e1ff","black","#0093a7",lambda: self.worker.send_command("auto"),1,1),
-            ("ABORTAR ACCION","#00e1ff","black","#0093a7",lambda: self.worker.abort_action(),1,2),
-            ("SALIR","#00e1ff","black","#0093a7",self.root.quit,1,3)
+            ("🔴 ROJO\n(A→ +180°, B→0°)","#d9534f","white","#b94a42",lambda: self.worker.send_command("rojo")),
+            ("🔵 AZUL\n(A→ +180°, B→180°)","#0275d8","white","#025aa5",lambda: self.worker.send_command("azul")),
+            ("🟡 AMARILLO\n(A→ -180°, C→0°)","#f0ad4e","black","#d08b36",lambda: self.worker.send_command("amarillo")),
+            ("🟢 VERDE\n(A→ -180°, C→180°)","#5cb85c","white","#4cae4c",lambda: self.worker.send_command("verde")),
+            ("LEER COLOR","#00e1ff","black","#0093a7",lambda: self.worker.send_command("Leer")),
+            ("AUTOMATICO","#00e1ff","black","#0093a7",lambda: self.worker.send_command("auto")),
+            #("ABORTAR ACCION","#00e1ff","black","#0093a7",lambda: self.worker.abort_action()),
+            ("ELIMNIAR PIEZA","#00e1ff","black","#0093a7",lambda: self.worker.send_command("Eliminar")),
+            ("SALIR","#00e1ff","black","#0093a7",self.root.quit)
         ]
-        
+
         
         #botones de ventana menu
-        for texto, fondo, clrFuente, fondoActivado, accion, fila, columna in btn_coman:
+        fila=0
+        columna=0
+        for texto, fondo, clrFuente, fondoActivado, accion in btn_coman:
+            if columna==4:
+                columna=0
+                fila+=1
             btn = tk.Button(Frame_btn, text=texto, width=18, height=3,
                              bg=fondo, fg=clrFuente, activebackground=fondoActivado,
                              command=accion)
             btn.grid(row=fila, column=columna, padx=10, pady=10, sticky="nsew")
+            columna+=1
         # --------- LOG ---------
 
         logf = ttk.Labelframe(body, text="Registro")

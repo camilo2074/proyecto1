@@ -30,13 +30,13 @@ motor_positions = {
 }
 
 last_color = None
-while True:
+bloques = 0
+while bloques<10:
     detected_color = sensor.color()
-    
+    if detected_color in COLOR_ASSIGNMENTS:
+        bloques+=1
     if detected_color in COLOR_ASSIGNMENTS and detected_color != last_color:
-
         motor_target, target_pos = COLOR_ASSIGNMENTS[detected_color]
-
         # Girar motor E o F a posición absoluta
         motor_target.run_target(VELOCITY, target_pos, Stop.HOLD, Direction.CLOCKWISE)
 
@@ -62,7 +62,8 @@ while True:
         wait(50)
 
     # Si detecta color no válido → resetear last_color
-    elif detected_color not in COLOR_ASSIGNMENTS:
-        last_color = None
-
+    elif detected_color not in COLOR_ASSIGNMENTS and detected_color != Color.NONE:
+        bloques+=1
+        motorA.run_angle(100, 180)
+    print(bloques)
     wait(50)
