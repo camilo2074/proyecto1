@@ -31,17 +31,23 @@ motor_positions = {
 
 last_color = None
 bloques = 0
-while bloques<10:
+while bloques<5:
     detected_color = sensor.color()
     if detected_color in COLOR_ASSIGNMENTS:
         bloques+=1
     if detected_color in COLOR_ASSIGNMENTS and detected_color != last_color:
         motor_target, target_pos = COLOR_ASSIGNMENTS[detected_color]
-        # Girar motor E o F a posición absoluta
-        motor_target.run_target(VELOCITY, target_pos, Stop.HOLD, Direction.CLOCKWISE)
+        # Calcular camino más corto
+        current_pos = motor_target.angle()
+        diff = (target_pos - current_pos) % 360
+        if diff > 180:
+            diff = diff - 360
+        # Solo mover si no está en la posición (tolerancia ±5°)
+        if abs(diff) > 5:
+            motor_target.run_target(VELOCITY, target_pos, Stop.HOLD, Direction.CLOCKWISE)
 
         # Motor A (alimentación)
-        if detected_color in (Color.MAGENTA, Color.BLUE):
+        if detected_color in (Color.RED, Color.BLUE):
             motorA.run_angle(VELOCITY_SLOW, 180)
         else:
             motorA.run_angle(VELOCITY_SLOW, -180)
@@ -51,9 +57,8 @@ while bloques<10:
 
         wait(150)
     elif detected_color in COLOR_ASSIGNMENTS and detected_color == last_color:
-
         # Solo motor A porque el color es igual al anterior
-        if detected_color in (Color.MAGENTA, Color.BLUE):
+        if detected_color in (Color.RED, Color.BLUE):
             motorA.run_angle(VELOCITY_SLOW, 180)
         else:
             motorA.run_angle(VELOCITY_SLOW, -180)
@@ -65,5 +70,4 @@ while bloques<10:
     elif detected_color not in COLOR_ASSIGNMENTS and detected_color != Color.NONE:
         bloques+=1
         motorA.run_angle(100, 180)
-    print(bloques)
     wait(50)

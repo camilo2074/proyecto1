@@ -4,7 +4,6 @@ import tkinter as tk
 from tkinter import ttk
 import sys
 import io
-import automatico
 from pybricksdev.ble import find_device
 from pybricksdev.connections.pybricks import PybricksHubBLE
 
@@ -14,31 +13,46 @@ from pybricksdev.connections.pybricks import PybricksHubBLE
 
 def create_program(comando: str) -> str:
     actions = {
-        "rojo": """
-if motorB.angle() != 0:
-    motorB.run_target(600, 0)
+        "verde": """
+target_B = 0
+current_B = motorB.angle()
+diff_B = (target_B - current_B) % 360
+if diff_B > 180:
+    diff_B = diff_B - 360
+if abs(diff_B) > TOLERANCE:
+    motorB.run_target(600, target_B)
 motorA.run_angle(600, -180)
-
+""",
+        "amarillo": """
+target_B = 180
+current_B = motorB.angle()
+diff_B = (target_B - current_B) % 360
+if diff_B > 180:
+    diff_B = diff_B - 360
+if abs(diff_B) > TOLERANCE:
+    motorB.run_target(600, target_B)
+motorA.run_angle(600,-180)
 """,
         "azul": """
-if motorB.angle() != 180:
-    motorB.run_target(600, 180)
-motorA.run_angle(600,-180)
-
+target_C = 180
+current_C = motorC.angle()
+diff_C = (target_C - current_C) % 360
+if diff_C > 180:
+    diff_C = diff_C - 360
+if abs(diff_C) > TOLERANCE:
+    motorC.run_target(600, target_C)
+motorA.run_angle(600, 180)
 """,
 
-        "amarillo": """    
-if motorC.angle() != 180:
-    motorC.run_target(600, 180)
+        "rojo": """
+target_C = 0
+current_C = motorC.angle()
+diff_C = (target_C - current_C) % 360
+if diff_C > 180:
+    diff_C = diff_C - 360
+if abs(diff_C) > TOLERANCE:
+    motorC.run_target(600, target_C)
 motorA.run_angle(600, 180)
-
-""",
-
-        "verde": """
-if motorC.angle() < 350 or motorC.angle() > 10:
-    motorC.run_target(600, 0)
-motorA.run_angle(600, 180)
-
 """,
 
         "Leer": """
@@ -68,6 +82,7 @@ hub = PrimeHub()
 motorA = Motor(Port.A)
 motorB = Motor(Port.F)
 motorC = Motor(Port.E)
+TOLERANCE = 5
 {drive_code}
 
 wait(500)
@@ -175,13 +190,6 @@ class BLEWorker:
         self.queue = asyncio.Queue()
         self.loop.create_task(self._runner())
         self.loop.run_forever()
-
-    async def abort_action(self):
-        try:
-            await self.hub.stop()
-            print("✅ Acción abortada.")
-        except Exception as e:
-            print(f"⚠️ Error al abortar: {e}")
 
     async def _runner(self):
         try:
@@ -342,13 +350,12 @@ class LegoGUI:
         Frame_btn = ttk.Frame(body, padding=20)
         Frame_btn.pack(fill='both', expand=True)
         btn_coman=[
-            ("🔴 ROJO\n(A→ +180°, B→0°)","#d9534f","white","#b94a42",lambda: self.worker.send_command("rojo")),
-            ("🔵 AZUL\n(A→ +180°, B→180°)","#0275d8","white","#025aa5",lambda: self.worker.send_command("azul")),
-            ("🟡 AMARILLO\n(A→ -180°, C→0°)","#f0ad4e","black","#d08b36",lambda: self.worker.send_command("amarillo")),
-            ("🟢 VERDE\n(A→ -180°, C→180°)","#5cb85c","white","#4cae4c",lambda: self.worker.send_command("verde")),
+            ("ROJO","#d9534f","white","#b94a42",lambda: self.worker.send_command("rojo")),
+            ("AZUL","#0275d8","white","#025aa5",lambda: self.worker.send_command("azul")),
+            ("AMARILLO","#f0ad4e","black","#d08b36",lambda: self.worker.send_command("amarillo")),
+            ("VERDE","#5cb85c","white","#4cae4c",lambda: self.worker.send_command("verde")),
             ("LEER COLOR","#00e1ff","black","#0093a7",lambda: self.worker.send_command("Leer")),
             ("AUTOMATICO","#00e1ff","black","#0093a7",lambda: self.worker.send_command("auto")),
-            #("ABORTAR ACCION","#00e1ff","black","#0093a7",lambda: self.worker.abort_action()),
             ("ELIMNIAR PIEZA","#00e1ff","black","#0093a7",lambda: self.worker.send_command("Eliminar")),
             ("SALIR","#00e1ff","black","#0093a7",self.root.quit)
         ]
