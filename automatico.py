@@ -43,7 +43,7 @@ while bloques<5:
         if diff > 180:
             diff = diff - 360
         # Solo mover si no está en la posición (tolerancia ±5°)
-        if abs(diff) > 5:
+        if abs(diff) > 20:
             motor_target.run_target(VELOCITY, target_pos, Stop.HOLD, Direction.CLOCKWISE)
 
         # Motor A (alimentación)

@@ -82,7 +82,7 @@ hub = PrimeHub()
 motorA = Motor(Port.A)
 motorB = Motor(Port.F)
 motorC = Motor(Port.E)
-TOLERANCE = 5
+TOLERANCE = 20
 {drive_code}
 
 wait(500)
@@ -146,7 +146,7 @@ async def execute_command(worker, comando: str, log_cb=None):
 
         #await hub.run(temp_path, wait=True, print_output=True)
         if log_cb:
-            log_cb(f"Ejecutado: {comando}")
+            log_cb(f"Tarea: {comando}")
 
 
     except Exception as e:
@@ -173,9 +173,9 @@ class BLEWorker:
         self.log_queue = log_queue
         self.color_canvas = color_canvas
         self.color_label = color_label
-    
+
     def _create_loop_and_thread(self):
-        """Crea un nuevo event loop y un nuevo hilo."""
+        #Crea un nuevo event loop y un nuevo hilo.
         self.running.clear()
         self.loop = asyncio.new_event_loop()
         self.thread = threading.Thread(target=self._thread_main, daemon=True)
@@ -184,7 +184,7 @@ class BLEWorker:
 
     def log(self, msg: str):
         self.log_queue.put(msg)
-
+    
     def _thread_main(self):
         asyncio.set_event_loop(self.loop)
         self.queue = asyncio.Queue()
@@ -250,58 +250,6 @@ class BLEWorker:
         if self.loop.is_running() and self.queue is not None:
             self.loop.call_soon_threadsafe(self.queue.put_nowait, comando)
 
-    def disconnect(self, timeout: float = 5.0):
-        """Desconecta el worker de forma segura: cancela la tarea actual,
-        desconecta el hub y detiene el event loop. Bloquea hasta que
-        la desconexión haya terminado o hasta `timeout` segundos.
-        """
-        if not self.loop.is_running():
-            return
-
-        try:
-            fut = asyncio.run_coroutine_threadsafe(self._do_disconnect(), self.loop)
-            fut.result(timeout=timeout)
-        except Exception:
-            # No bloquear si hay errores; el thread limpiará el loop.
-            pass
-
-    async def _do_disconnect(self):
-        # Cancelar tarea en curso
-        try:
-            if self.current_task and not self.current_task.done():
-                self.current_task.cancel()
-                try:
-                    await asyncio.wait_for(self.current_task, timeout=2.0)
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
-        # Desconectar hub si existe
-        try:
-            if self.hub:
-                try:
-                    await asyncio.wait_for(self.hub.disconnect(), timeout=3.0)
-                except Exception:
-                    pass
-                self.hub = None
-        except Exception:
-            pass
-
-        # Detener loop: cancelar tareas restantes y parar
-        try:
-            for task in asyncio.all_tasks(self.loop):
-                if task is not asyncio.current_task(loop=self.loop):
-                    task.cancel()
-        except Exception:
-            pass
-
-        # Dar al loop un momento para limpiar y luego detenerlo
-        try:
-            await asyncio.sleep(0)
-        except Exception:
-            pass
-        self.loop.call_soon_threadsafe(self.loop.stop)
 
 # -------------------- GUI -------------------- 
 
@@ -330,12 +278,10 @@ class LegoGUI:
         body = ttk.Frame(self.root, padding=20)
         body.pack(fill='both', expand=True)
 
-        # -------- BOTONES NUEVOS -----------------------------------------
-               # --- Main body (2 columnas) ---
+        # -------- BOTONES -----------------------------------------
 
         label_titulo = tk.Label(body, text="COLOR DETECTADO", font=("Arial", 14, "bold"), bg="gray", fg="white")
         label_titulo.pack(fill="x", pady=(10, 5))
-
 
         # Visual de color (un canvas cuadrado)
         self.color_canvas = tk.Canvas(body,height=100, bg="#ffffff", bd=2, relief="sunken")
@@ -360,7 +306,6 @@ class LegoGUI:
             ("SALIR","#00e1ff","black","#0093a7",self.root.quit)
         ]
 
-        
         #botones de ventana menu
         fila=0
         columna=0
