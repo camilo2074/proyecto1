@@ -1,8 +1,8 @@
 # Manual de Usuario 
-## Sporting Mining: Clasificador Remoto de Minerales para la Optimización y Seguridad en Minería
+## Sorting Mining: Clasificador Remoto de Minerales para la Optimización y Seguridad en Minería
 
 ### Descripción 
-**Sporting Mining** es un prototipo diseñado para clasificar minerales representados por piezas de colores mediante un sensor de color. El sistema busca optimizar la clasificación, mejorar la precisión y aumentar la seguridad operacional a través del control remoto y la automatización. 
+**Sorting Mining** es un prototipo diseñado para clasificar minerales representados por piezas de colores mediante un sensor de color. El sistema busca optimizar la clasificación, mejorar la precisión y aumentar la seguridad operacional a través del control remoto y la automatización. 
 
 --- 
 
