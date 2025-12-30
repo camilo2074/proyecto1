@@ -57,7 +57,7 @@ class LegoGUI:
             ("VERDE","#5cb85c","white","#4cae4c",lambda: self.worker.send_command("verde")),
             ("LEER COLOR","#00e1ff","black","#0093a7",lambda: self.worker.send_command("Leer")),
             ("AUTOMÁTICO","#00e1ff","black","#0093a7",lambda: self.worker.send_command("auto")),
-            ("ELIMNIAR PIEZA","#00e1ff","black","#0093a7",lambda: self.worker.send_command("Eliminar")),
+            ("ELIMINAR PIEZA","#00e1ff","black","#0093a7",lambda: self.worker.send_command("Eliminar")),
             ("SALIR","#00e1ff","black","#0093a7",self.root.quit)
         ]
 
@@ -128,4 +128,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
