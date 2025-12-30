@@ -24,9 +24,12 @@
 
 ### Pasos de instalación y configuración 
 1. **Instalar dependencias** 
-    - Descargar e instalar **Python 3.12.4**. 
-    - Descargar e instalar la **última versión de Visual Studio Code (VS Code)**. 
-    - Descargar e instalar la **última versión de PyBricks** y sus extensiones correspondientes en VS Code. 
+    - Descargar e instalar **Python 3.12.4**.
+      https://www.python.org/downloads/release/python-3124/
+    - Descargar e instalar la **última versión de Visual Studio Code (VS Code)**.
+      https://code.visualstudio.com/download
+    - Descargar e instalar la **última versión de PyBricks** y sus extensiones correspondientes en VS Code.
+      https://pybricks.com/learn/getting-started/install-pybricks/
 
 2. **Preparar el entorno del dispositivo** 
     - Formatear el **Spike Prime HUB** utilizando PyBricks.
